@@ -1,0 +1,32 @@
+[
+{
+    "pk": 1, 
+    "model": "pages.page", 
+    "fields": {
+        "url": "/", 
+        "summary": "", 
+        "view": "", 
+        "template": "", 
+        "title": "Welcome!"
+    }
+},
+{
+    "pk": 1, 
+    "model": "flexible_content.baseitem", 
+    "fields": {
+        "ordering": 1, 
+        "content_area_id": 1, 
+        "content_area_ct": [
+            "pages", 
+            "page"
+        ]
+    }
+},
+{
+    "pk": 1, 
+    "model": "default_item_types.plaintext", 
+    "fields": {
+        "text": "Sample text!"
+    }
+}
+]
