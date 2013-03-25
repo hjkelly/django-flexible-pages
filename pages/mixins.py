@@ -1,5 +1,6 @@
 from .models import Page
 
+
 class FlexiblePageMixin(object):
     """
     Offers flexible page awareness to a custom view.
@@ -25,7 +26,7 @@ class FlexiblePageMixin(object):
             def get_object(self):
                 return self.get_flexible_page()
 
-    The above example would deliver the flexible page to the template as 
+    The above example would deliver the flexible page to the template as
     'object' (that's just how DetailView works).
 
     If you're using a different type of view, you can do the following:
@@ -53,6 +54,9 @@ class FlexiblePageMixin(object):
         return self.flexible_page
 
     def get_customized_template_names(self, base_template_names):
+        """
+        Prepend a custom template to an existing list of templates.
+        """
         template_names = base_template_names
 
         # If the page has a custom template, add that in here.
@@ -61,8 +65,6 @@ class FlexiblePageMixin(object):
         if custom_template_name:
             # Prepend the list-ified template list with the custom template.
             template_names = ([custom_template_name] +
-                              [t for t in base_template_names])
+                              [t for t in template_names])
 
         return template_names
-        
-

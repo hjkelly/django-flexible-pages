@@ -1,1 +1,5 @@
 django-flexible-content
+django-nose
+coverage
+pep8
+pylint

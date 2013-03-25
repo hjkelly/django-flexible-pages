@@ -10,4 +10,3 @@ urlpatterns = patterns('',
 
     url(r'^$', 'mock_project.test_app.views.homepage_view'),
 )
-

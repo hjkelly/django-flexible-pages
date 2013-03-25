@@ -15,7 +15,7 @@ from .managers import PageManager
 
 class Page(ContentArea):
     """
-    These pages can be placed outside of urls.py and be resolved via 
+    These pages can be placed outside of urls.py and be resolved via
     middleware, hence the URL field below.
     """
 
@@ -108,7 +108,7 @@ class Page(ContentArea):
         if self.view:
             try:
                 view = get_callable(self.view)
-            except (ImportError, ViewDoesNotExist) as e:
+            except (ImportError, ViewDoesNotExist):
                 pass
 
         return view
@@ -138,7 +138,7 @@ class Page(ContentArea):
         There is a default view provided. There are two reasons why it wouldn't
         be used:
         1.  The page's view field specified an existing view.
-        2.  The page's URL matches a URLpattern. For example, if you're 
+        2.  The page's URL matches a URLpattern. For example, if you're
             providing the content for a standard page, like: /blog/
         """
         from .views import default_page_view
@@ -166,4 +166,3 @@ class Page(ContentArea):
 
     def clean(self):
         self.validate_view()
-

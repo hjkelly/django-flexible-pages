@@ -28,7 +28,7 @@ class PageAdmin(ContentAreaAdmin):
             'classes': ('collapse',),
         }),
     )
-    
+
     def summary_preview(self, obj):
         if obj.summary and len(obj.summary) > 75:
             return '%s...' % obj.summary[:50]
@@ -37,4 +37,3 @@ class PageAdmin(ContentAreaAdmin):
     summary_preview.short_description = "Summary"
 
 admin.site.register(Page, PageAdmin)
-

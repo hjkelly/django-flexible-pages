@@ -1,4 +1,3 @@
-from django.http import Http404
 from django.views.generic import DetailView
 
 from .mixins import FlexiblePageMixin
@@ -26,4 +25,3 @@ class BasePageView(FlexiblePageMixin, DetailView):
 class DefaultPageView(BasePageView):
     pass
 default_page_view = DefaultPageView.as_view()
-

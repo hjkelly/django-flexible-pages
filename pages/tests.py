@@ -4,9 +4,8 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.utils import IntegrityError
-from django.http import Http404, HttpResponse
 from django.test import SimpleTestCase, TestCase
-from django.test.client import Client, RequestFactory
+from django.test.client import RequestFactory
 
 from mock_project.test_app import views as test_app_views
 
@@ -225,7 +224,6 @@ class PageEfficiencyTest(TestCase):
         # Delete the page!
         page.delete()
         # That should have removed it from the cache.
-        cache_value = cache.get(cache_key)
         self.assertNotIsInstance(cache.get(cache_key, None), Page)
 
     def test_cache_emptied_upon_save(self):
@@ -245,7 +243,7 @@ class PageEfficiencyTest(TestCase):
         # Save the page.
         page.save()
         connection.queries = []
-        # That should have removed it from the cache, so this will incur 
+        # That should have removed it from the cache, so this will incur
         # another query.
         page = Page.objects.get_for_url('/')
         self.assertEqual(len(connection.queries), 1)
@@ -254,16 +252,13 @@ class PageEfficiencyTest(TestCase):
 class PageIntegrityTest(TestCase):
     def test_url_unique(self):
         try:
-            homepage = Page.objects.create(title="Welcome home!", url='/')
-            duplicate_page = Page.objects.create(title="New page!",
-                url='/')
-        except (ValidationError, IntegrityError) as e:
+            Page.objects.create(title="Welcome home!", url='/')
+            Page.objects.create(title="New page!", url='/')
+        except (ValidationError, IntegrityError):
             pass
         else:
             self.fail("The Page model isn't properly enforcing the uniqueness "
                       "of its URL field.")
-        finally:
-            Page.objects.all().delete()
 
     def test_valid_urls(self):
         page = Page(title="Test Page")
@@ -275,8 +270,6 @@ class PageIntegrityTest(TestCase):
             self.fail("Perfectly good path ran into a problem when saving. "
                       "The rejected path: '{path}'\n"
                       "Reason: {reason}".format(path=page.url, reason=str(e)))
-        finally:
-            Page.objects.all().delete()
 
     def test_invalid_urls(self):
         page = Page(title="Test Page")
@@ -284,22 +277,20 @@ class PageIntegrityTest(TestCase):
             for invalid_url in INVALID_PATHS:
                 page.url = invalid_url.encode('utf-8')
                 page.save()
-        except ValidationError as e:
+        except ValidationError:
             pass
         else:
             self.fail("Bad path was allowed into the database! The "
                       "dangerous path: '{path}'".format(path=page.url))
-        finally:
-            Page.objects.all().delete()
 
     def test_url_normalization(self):
         try:
             test_page = Page.objects.create(title="Welcome home!",
                                             url='/posts/../posts/')
-        except (ValidationError, IntegrityError) as e:
+        except (ValidationError, IntegrityError):
             pass
         else:
-            # If it passed, it's only okay if it got normalized down to what 
+            # If it passed, it's only okay if it got normalized down to what
             # it would be resolved to in a file system.
             if test_page.url != '/posts/':
                 self.fail("The Page model isn't properly normalizing URLs.")
@@ -308,85 +299,9 @@ class PageIntegrityTest(TestCase):
 
     def test_invalid_view(self):
         try:
-            blog = Page.objects.create(title="Company Blog",
-                                       url='/blog/',
-                                       view='website.this.view.doesnt.exist')
-        except ValidationError as e:
+            Page.objects.create(title="Company Blog", url='/blog/',
+                                view='website.this.view.doesnt.exist')
+        except ValidationError:
             pass
         else:
             self.fail("A non-existent view was allowed into the database!")
-        finally:
-            Page.objects.all().delete()
-
-
-"""
-class PageIntegrationTest(TestCase):
-    def setUp(self):
-        # Put a client on the instance so we don't have to re-create one.
-        self.client = Client()
-
-        # Insert the data all of these test cases needs.
-        try:
-            # Don't create a URLpattern only page: /events/
-            # Create a DB-only page.
-            about = Page.objects.create(title="About Us", url='/about/')
-            # Create a hybrid page.
-            misleading_page = Page(title="Posts... or posted events!",
-                                   url='/posts/',
-                                   view='ipanema.events.views.event_list')
-            misleading_page.save()
-        except (IntegrityError, ValidationError) as e:
-            raise Exception("One or more of the pages was rejected while "
-                            "trying to set up the pages. This shouldn't "
-                            "happen! Exception: \n{}\nURL: {}".format(str(e)))
-
-    def tearDown(self):
-        Page.objects.all().delete()
-
-    def test_request_non_existent_page(self):
-        response = self.client.get('/this-page/should-not-exist/')
-
-        # If we didn't get a 404, that's not right:
-        if response.status_code != 404:
-            self.fail("Got a response other than 404 for a non-existent page: "
-                      "got {} instead.".format(response.status_code))
-
-    def test_request_urlpattern_page(self):
-        response = self.client.get('/events/')
-        # If we didn't get a 200, that's a problem.
-        if response.status_code != 200:
-            self.fail("Got a response other than 200 for a page in "
-                      "URLpatterns: got {} instead.".
-                      format(response.status_code))
-        # Make sure the content is correct!
-        if "<h1>Events</h1>" not in response.content:
-            self.fail("The rendered events listing page didn't have an h1 "
-                      "with the default title, 'Events'.")
-
-    def test_request_cms_page(self):
-        response = self.client.get('/about/')
-
-        # If we didn't get a 200, that's a problem.
-        if response.status_code != 200:
-            self.fail("Got a response other than 200 for a page in the DB: "
-                      "got {} instead.".format(response.status_code))
-        # Make sure the content is correct!
-        if "<h1>About Us</h1>" not in response.content:
-            self.fail("The rendered about page didn't have an h1 with the "
-                      "title 'About Us'.")
-
-    def test_request_hybrid_page(self):
-        response = self.client.get('/posts/')
-
-        # If we didn't get a 200, that's a problem.
-        if response.status_code != 200:
-            self.fail("Got a response other than 200 for a page in the DB "
-                      "and URLpatterns: got {} instead.".
-                      format(response.status_code))
-        # Make sure the content is correct!
-        if "<h1>Posts... or posted events!</h1>" not in response.content:
-            self.fail("The rendered hybrid posts page didn't have the Page "
-                      "instance's title on it.")
-"""
-
-
