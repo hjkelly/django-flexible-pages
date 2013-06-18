@@ -1,17 +1,16 @@
-# coding=utf-8
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.utils import IntegrityError
 from django.test import SimpleTestCase, TestCase
-from django.test.client import RequestFactory
+from django.test.client import Client, RequestFactory
 
+from flexible_content.default_item_types.models import PlainText
 from mock_project.test_app import views as test_app_views
 
 from .models import Page
 from .views import default_page_view
-
 
 VALID_PATHS = [
     '/',
@@ -40,7 +39,7 @@ INVALID_PATHS = [
     u'/encyclop\u00E6dia/',
 ]
 
-rf = RequestFactory()
+client = Client()
 
 
 class PageUnitTest(SimpleTestCase):
@@ -92,33 +91,6 @@ class PageUnitTest(SimpleTestCase):
         page = Page(url='/my-page/',
                     view='mock_project.test_app.views.nonexistent_view')
         self.assertEqual(page.get_view(), default_page_view)
-
-    # RENDERING THE PAGE ------------------------------------------------------
-
-    def test_get_rendered_content_custom(self):
-        request = rf.get('/')
-        page = Page(title="Custom View", url='/',
-                    view='mock_project.test_app.views.custom_view')
-        html = unicode(page.get_rendered_content(request))
-        # We should find the text from custom_view in this response.
-        self.assertTrue("custom view" in html)
-
-    def test_get_rendered_content_urlpattern(self):
-        request = rf.get('/')
-        page = Page(title="Standard Homepage", url='/')
-        html = unicode(page.get_rendered_content(request))
-        # We should find the text from custom_view in this response.
-        self.assertTrue("standard homepage view" in html)
-
-    def test_get_rendered_content_default(self):
-        request = rf.get('/my-page/')
-        title = "Custom Page with Default View"
-        page = Page.objects.create(title=title, url='/my-page/')
-        response = page.get_rendered_content(request)
-        response.render()
-        html = unicode(response)
-        # We should find the text from custom_view in this response.
-        self.assertTrue(title in html)
 
 
 class PageEfficiencyTest(TestCase):
@@ -305,3 +277,87 @@ class PageIntegrityTest(TestCase):
             pass
         else:
             self.fail("A non-existent view was allowed into the database!")
+
+
+class PageIntegrationTest(TestCase):
+    """
+    Ensure that, from a client-facing side, the responses work as expected.
+    """
+    fixtures = ['test-data.json']
+
+    def setUp(self):
+        cache.clear()
+
+    def test_standalone_page(self):
+        """
+        Case 1: Page exists only in the CMS. Can we get its content?
+        """
+        response = unicode(client.get('/test/'))
+
+        self.assertIn("This is a random page!", response,
+                      msg="Response was missing the page instance's title.")
+        self.assertIn("Text on a random page!", response,
+                      msg="Response was missing text from a content item.")
+        
+    def test_urlpattern_view_instead_of_default(self):
+        """
+        Case 2: Page exists in the CMS and as a URLpattern-driven view, so
+        use the URLpattern-driven view by default.
+        """
+        response = unicode(client.get('/'))
+
+        self.assertIn("<h1>Welcome!</h1>", response,
+                      msg="Response was missing the page instance's title.")
+        self.assertIn("<p>This is our homepage's baked-in text.</p>", response,
+                      msg="Response was missing the baked-in text from the template.")
+        self.assertIn("Sample text!", response,
+                      msg="Response was missing text from a content item.")
+
+    def test_urlpattern_view_overridden_by_custom(self):
+        """
+        Case 3: Page has a URLpattern-driven view, but is overridden by a
+        custom view entered in the CMS.
+        """
+        # Change the page to have a custom view first.
+        page = Page.objects.get(url='/')
+        page.view = 'mock_project.test_app.views.custom_view'
+        page.save()
+
+        # Fetch the page!
+        response = unicode(client.get('/'))
+
+        # Make sure the stuff from the URLpattern-driven view wasn't included.
+        self.assertNotIn("<p>This is our homepage's baked-in text.</p>", response,
+                         msg="Response wrongly used the standard template.")
+
+        # Ensure that the custom view's stuff shows instead.
+        self.assertIn("<p>This is NOT the default template, but a custom one!</p>",
+                      response,
+                      msg="Response didn't include text from the custom template.")
+        self.assertIn("Sample text!", response,
+                      msg="Response was missing text from a content item.")
+
+    def test_nonexistent_page(self):
+        """
+        Case 4: Page doesn't exist.
+        """
+        response = client.get('/page-does-not-exist/')
+        self.assertEquals(response.status_code, 404)
+
+    def test_custom_template(self):
+        """
+        Make sure custom templates are honored, too.
+        """
+        # Give it a custom template.
+        page = Page.objects.get(url='/')
+        page.template = 'pages/custom.html'
+        page.save()
+
+        # Fetch the page!
+        response = unicode(client.get('/'))
+
+        # We should find a different bit of baked-in text.
+        self.assertIn("<p>This is NOT the default template, but a custom one!</p>",
+                      response,
+                      msg="Response didn't include text from the custom template.")
+

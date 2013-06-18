@@ -1,12 +1,13 @@
 from django.http import HttpResponse
-from django.views.generic import View
+
+from pages.views import BasePageView
 
 
-class HomepageView(View):
-    def get(self, request, *args, **kwargs):
-        return HttpResponse("standard homepage view")
+class HomepageView(BasePageView):
+    template_name = 'pages/home.html'
 homepage_view = HomepageView.as_view()
 
 
-def custom_view(request, flexible_page=None):
-    return HttpResponse("custom view")
+class CustomView(BasePageView):
+    template_name = 'pages/custom.html'
+custom_view = CustomView.as_view()

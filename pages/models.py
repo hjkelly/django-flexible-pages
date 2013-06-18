@@ -146,7 +146,7 @@ class Page(ContentArea):
                 self.get_urlpattern_view() or
                 default_page_view)
 
-    def get_rendered_content(self, request):
+    def get_response(self, request):
         """
         Delegate to the view and return its response.
         """

@@ -23,7 +23,7 @@ class PageMiddleware(object):
         # If there's a custom view, or if there's no URLpattern-driven view
         # to pick up the slack, just let the page do what it wants.
         # would.
-        response = cms_match.get_rendered_content(request)
+        response = cms_match.get_response(request)
 
         # If it's a class-based view that isn't rendered yet (Django's resolver
         # does that normally), do it ourselves.
